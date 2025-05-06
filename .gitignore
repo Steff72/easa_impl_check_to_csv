@@ -1,0 +1,18 @@
+# Environment-Variablen
+.env
+
+# Unternehmens-Dokumente (sensible PDF)
+documents/
+
+# Chroma DB Persistence (lokale Datenbank)
+.chromadb/
+
+# Python Cache
+__pycache__/
+*.py[cod]
+
+# Pipenv Lockfile (optional)
+# Pipfile.lock
+
+# Ergebnisse (wenn nicht versioniert)
+# results/
