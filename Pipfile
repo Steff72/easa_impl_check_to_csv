@@ -5,13 +5,11 @@ name = "pypi"
 
 [packages]
 python-dotenv = "*"
-openai = "*"
-pymupdf = "*"
-chromadb = "*"
-lxml = "*"
-click = "*"
-pytest = "*"
-fitz = "*"
+openai          = "*"
+chromadb        = "*"
+lxml            = "*"
+click           = "*"
+pdfplumber      = "*"
 
 [dev-packages]
 pytest = "*"

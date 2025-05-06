@@ -1,21 +1,24 @@
 # EASA Part-FCL → OM-D Mapping CLI
 
-Dieses Python-Tool automatisiert die Zuordnung von EASA Part‑FCL‑Regularien (Annex I) zu den entsprechenden Abschnitten im Unternehmens-Handbuch (OM D Rev29).
+Dieses Python-Tool automatisiert die Zuordnung von EASA Part-FCL-Regularien (Annex I) zu den entsprechenden Abschnitten im Unternehmens-Handbuch (OM D Rev29).
 
 ## Projektstruktur
 
 ```
 project_root/
 ├── Pipfile               # Pipenv-Konfiguration
-├── .env.example          # Beispiel für Umgebungsvariablen
+├── Pipfile.lock          # automatisch erzeugt
 ├── .gitignore            # Git-Ausnahmen
+├── pytest.ini            # Pytest-Konfiguration
+├── .env.example          # Beispiel-Umgebungsvariablen
 ├── README.md             # Projektdokumentation
 ├── regulations/          # Enthält die EASA-XML-Datei
 │   └── Easy Access Rules for Aircrew.xml
 ├── documents/            # Unternehmens-Handbuch (nur lokal, nicht im Repo)
 │   └── OM D Rev29.pdf
 ├── results/              # Generierte CSV-Ausgabe (nicht versioniert)
-├── src/                  # Quellcode
+├── src/                  # Python-Package
+│   ├── __init__.py
 │   ├── main.py           # CLI-Einstiegspunkt
 │   ├── parse_regulations.py
 │   ├── parse_document.py
@@ -29,11 +32,23 @@ project_root/
     └── test_vector_search.py  
 ```
 
+## pytest.ini
+
+```ini
+[pytest]
+minversion = 6.0
+testpaths = tests
+pythonpath = src
+addopts = -q
+```
+
+*Diese Konfiguration stellt sicher, dass `src/` als Importpfad hinzugefügt wird.*
+
 ## Voraussetzungen
 
-* Python 3.8+ installiert
+* Python 3.8+ installiert
 * [Pipenv](https://pipenv.pypa.io/) für Environment-Management
-* OpenAI-API‑Key
+* OpenAI-API-Key
 
 ## Installation
 
@@ -61,31 +76,19 @@ Lege das PDF `OM D Rev29.pdf` in den Ordner `documents/`. Dieser Ordner ist in `
 ## Nutzung
 
 ```bash
-# Mit Pipenv in das Environment wechseln
 pipenv shell
-
-# Mapping ausführen (XML + PDF → results/part-fcl_to_omd_map.csv)
-python src/main.py --regs regulations/Easy\ Access\ Rules\ for\ Aircrew.xml --doc documents/OM\ D\ Rev29.pdf
+python src/main.py --regs regulations/Easy\ Access\ Rules\ for\ Aircrew.xml \
+  --doc documents/OM\ D\ Rev29.pdf --out results/part-fcl_to_omd_map.csv
 ```
 
 ## Tests
 
-Die Unit-Tests prüfen die Kernelemente (XML-Parser, PDF-Split, CSV-Export).
+Führe die Unit-Tests mit pytest aus. Dank `pytest.ini` werden die Module aus `src/` korrekt gefunden:
 
 ```bash
-pipenv run pytest  
-```
-
-## Ergebnis
-
-Die CSV-Datei im Ordner `results/` listet in jeder Zeile eine Regulation und alle bestätigten OM-D-Abschnitte:
-
-```
-Regulation;Dokumentreferenz
-"AMC1 FCL.050 a) Recording of flight time";"OM-D (29) 3.10.4"
-"AMC1 FCL.050 a) Recording of flight time";"OM-D (29) 7.1.12"
-...
+pipenv run python -m pytest -q
 ```
 
 ---
 
+*Viel Erfolg!*
