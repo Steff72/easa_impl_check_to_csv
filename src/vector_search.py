@@ -1,58 +1,47 @@
-# src/vector_search.py
-
 import os
-import openai
 import chromadb
+from chromadb import PersistentClient
+from openai import OpenAI
 
-def init_chroma(
-    sections: dict[str, str]
-) -> chromadb.api.models.Collection:
+# OpenAI v1-Client initialisieren
+_ai = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+def init_chroma(sections: dict[str, str]) -> chromadb.api.models.Collection:
     """
-    Build an in-memory Chroma collection by:
-    1) Computing OpenAI embeddings for each section
-    2) Creating a Chroma EphemeralClient
-    3) Adding the precomputed embeddings & IDs to a collection
-    Returns the ready-to-query collection.
+    Lädt oder erzeugt eine persistent gespeicherte Chroma-Collection.
+    Beim ersten Lauf werden alle Sektionen embeddet und gespeichert,
+    danach wird die bestehende DB geladen.
     """
-    # Load OpenAI key & model
-    openai.api_key = os.getenv("OPENAI_API_KEY")
     model = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
+    persist_dir = os.getenv("CHROMA_PERSIST_DIR", ".chromadb")
 
-    # Prepare lists for IDs, embeddings and metadata
-    ids = []
-    embeddings = []
-    metadatas = []
-
-    # Compute an embedding for each section
-    for sec_id, sec_text in sections.items():
-        resp = openai.embeddings.create(
-            model=model,
-            input=[sec_text]
-        )
-        emb = resp.data[0].embedding
-        ids.append(sec_id)
-        embeddings.append(emb)
-        metadatas.append({"sec_id": sec_id})
-
-    # Spin up an in-memory Chroma client
-    client = chromadb.EphemeralClient()
-
-    # Create (or recreate) the collection
+    client = PersistentClient(path=persist_dir)
     try:
-        coll = client.get_collection("omd_sections")
-        coll.delete(where={})
-    except Exception:
+        return client.get_collection("omd_sections")
+    except chromadb.errors.NotFoundError:
         coll = client.create_collection(name="omd_sections")
 
-    # Add the precomputed embeddings
-    coll.add(
-        ids=ids,
-        embeddings=embeddings,
-        metadatas=metadatas
-    )
+        ids, docs, embs, metas = [], [], [], []
+        for sec_id, sec_text in sections.items():
+            # nur ein einziger String statt [sec_text]
+            resp = _ai.embeddings.create(
+                model=model,
+                input=sec_text
+            )
+            emb = resp.data[0].embedding
 
-    return coll
+            ids.append(sec_id)
+            docs.append(sec_text)
+            embs.append(emb)
+            metas.append({"sec_id": sec_id})
 
+        coll.add(
+            ids=ids,
+            embeddings=embs,
+            documents=docs,
+            metadatas=metas
+        )
+        return coll
 
 def search_candidates(
     collection: chromadb.api.models.Collection,
@@ -61,32 +50,29 @@ def search_candidates(
     max_results: int
 ) -> list[str]:
     """
-    Given a collection and a query string:
-    1) Compute the query's OpenAI embedding
-    2) Query the collection via `query_embeddings`
-    3) Return section IDs whose distance ≥ threshold
+    Erstellt das Query-Embedding als einzelner String und führt
+    die Vektor-Suche in Chroma durch.
+    Liefert nur IDs, deren Abstand >= threshold.
     """
-    # Ensure OpenAI key & same model
-    openai.api_key = os.getenv("OPENAI_API_KEY")
     model = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
 
-    # Compute embedding for the query
-    resp = openai.embeddings.create(
+    # nur ein einziger String statt [query_text]
+    resp = _ai.embeddings.create(
         model=model,
-        input=[query_text]
+        input=query_text
     )
     q_emb = resp.data[0].embedding
 
-    # Perform vector search by embedding
     results = collection.query(
         query_embeddings=[q_emb],
         n_results=max_results,
         include=["metadatas", "distances"]
     )
-
-    # Unpack
     metas = results["metadatas"][0]
     dists = results["distances"][0]
 
-    # Filter by threshold
-    return [m["sec_id"] for m, dist in zip(metas, dists) if dist >= threshold]
+    return [
+        m["sec_id"]
+        for m, dist in zip(metas, dists)
+        if dist >= threshold
+    ]
