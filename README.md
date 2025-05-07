@@ -1,94 +1,93 @@
-# EASA Part-FCL → OM-D Mapping CLI
+# EASA Implementation Checker
 
-Dieses Python-Tool automatisiert die Zuordnung von EASA Part-FCL-Regularien (Annex I) zu den entsprechenden Abschnitten im Unternehmens-Handbuch (OM D Rev29).
+Dieses Tool bildet EASA Part‑FCL‑Regelungen automatisch auf die entsprechenden Abschnitte (Sections) eines oder mehrerer Betriebshandbücher (OM‑D PDFs) ab. Es kombiniert Vektor‑Suche (ChromaDB) mit einer LLM‑Validierung, um echte Umsetzungspassagen präzise zu erkennen und als CSV zu exportieren.
 
-## Projektstruktur
+---
+
+## Ordnerstruktur
 
 ```
-project_root/
-├── Pipfile               # Pipenv-Konfiguration
-├── Pipfile.lock          # automatisch erzeugt
-├── .gitignore            # Git-Ausnahmen
-├── pytest.ini            # Pytest-Konfiguration
-├── .env.example          # Beispiel-Umgebungsvariablen
-├── README.md             # Projektdokumentation
-├── regulations/          # Enthält die EASA-XML-Datei
-│   └── Easy Access Rules for Aircrew.xml
-├── documents/            # Unternehmens-Handbuch (nur lokal, nicht im Repo)
-│   └── OM D Rev29.pdf
-├── results/              # Generierte CSV-Ausgabe (nicht versioniert)
-├── src/                  # Python-Package
-│   ├── __init__.py
-│   ├── main.py           # CLI-Einstiegspunkt
-│   ├── parse_regulations.py
-│   ├── parse_document.py
-│   ├── vector_search.py
-│   ├── semantic_match.py
-│   └── export_results.py
-└── tests/                # Unit-Tests mit pytest
-    ├── test_parse_regulations.py
-    ├── test_parse_document.py
-    ├── test_export_results.py
-    └── test_vector_search.py  
+├── regulations/     # EASA‑XML‑Regelwerke
+├── documents/       # Zu prüfende Handbücher (PDFs)
+├── results/         # CSV‑Ausgaben
+├── .chromadb/       # Automatisch erstellte Vektor‑Datenbank
+└── src/             # Python‑Quellcode
 ```
 
-## pytest.ini
+> **Wichtig:** Legen Sie **alle** zu prüfenden Manuals (PDF‑Dateien) im Ordner `documents/` ab. Das Programm verarbeitet beim Aufruf standardmäßig den gesamten Ordner.
 
-```ini
-[pytest]
-minversion = 6.0
-testpaths = tests
-pythonpath = src
-addopts = -q
-```
-
-*Diese Konfiguration stellt sicher, dass `src/` als Importpfad hinzugefügt wird.*
-
-## Voraussetzungen
-
-* Python 3.8+ installiert
-* [Pipenv](https://pipenv.pypa.io/) für Environment-Management
-* OpenAI-API-Key
+---
 
 ## Installation
 
 ```bash
-# Pipenv-Environment anlegen und Abhängigkeiten installieren
-pipenv install --dev
-```
+# 1. Repository klonen
+$ git clone <repo‑url>
+$ cd easa‑impl‑checker
 
-## Umgebungsvariablen (`.env`)
+# 2. Abhängigkeiten mit Pipenv installieren
+$ pipenv install --python 3.11
 
-Erstelle im Projektstamm eine Datei `.env` mit folgenden Einträgen:
+# 3. Shell öffnen
+$ pipenv shell
 
-```
-OPENAI_API_KEY=dein_api_key
-EMBEDDING_MODEL=text-embedding-3-small
-LLM_MODEL=gpt-4.1-mini
+# 4. Umgebungsvariablen anlegen (.env)
+#  (mindestens OPENAI_API_KEY muss gesetzt sein!)
+OPENAI_API_KEY=<Ihr‑OpenAI‑Key>
+# optionale Feintuning‑Parameter
 SIMILARITY_THRESHOLD=0.7
 MAX_CANDIDATES=50
 ```
 
-## Unternehmens-Handbuch
-
-Lege das PDF `OM D Rev29.pdf` in den Ordner `documents/`. Dieser Ordner ist in `.gitignore` ausgenommen und enthält vertrauliche Unterlagen.
-
-## Nutzung
-
-```bash
-pipenv shell
-python src/main.py --regs regulations/Easy\ Access\ Rules\ for\ Aircrew.xml \
-  --doc documents/OM\ D\ Rev29.pdf --out results/part-fcl_to_omd_map.csv
-```
-
-## Tests
-
-Führe die Unit-Tests mit pytest aus. Dank `pytest.ini` werden die Module aus `src/` korrekt gefunden:
-
-```bash
-pipenv run python -m pytest -q
-```
+> **Hinweis:** Legen Sie Ihren **OpenAI‑API‑Key** in der Datei `.env` als `OPENAI_API_KEY=...` ab oder exportieren Sie ihn als Umgebungsvariable, bevor Sie das Tool starten.
 
 ---
 
-*Viel Erfolg!*
+## Ausführung
+
+```bash
+# Standardaufruf verarbeitet alle PDFs im Ordner `documents/`
+$ python src/main.py \
+    --regs "regulations/Easy Access Rules for Aircrew … .xml" \
+    --doc documents \
+    --out results/part‑fcl_to_omd_map.csv
+```
+
+Parameterübersicht:
+
+* `--regs`  – Pfad zur XML‑Regulationsdatei (Default siehe oben)
+* `--doc`   – Einzelpfad **oder** Ordner; default `documents/`
+* `--out`   – Zieldatei für die CSV‑Ergebnisse
+
+---
+
+## Funktionsweise (Kurzfassung)
+
+1. **Regulations parsen** – XML wird in einzelne Regeltexte zerlegt.
+2. **PDF‑Abschnitte extrahieren** – Jede PDF im Ordner `documents/` wird section‑weise eingelesen.
+3. **Vektor‑Index** – Alle Sections werden in eine Chroma‑Collection eingebettet.
+4. **Kandidatensuche** – Für jede Regulation werden per Ähnlichkeitsscore Top‑K‑Kandidaten geholt.
+5. **LLM‑Validierung** – GPT‑Modell prüft, welche Kandidaten den Regeltext wirklich erfüllen.
+6. **Export** – Das Mapping wird als CSV gespeichert (`regulation`, `section`). Die Section enthält **Dateiname + Abschnitts‑ID** (z. B. `EDW OM D Rev29.pdf 3.4.2`).
+
+---
+
+## Vektor‑Datenbank zurücksetzen
+
+Das Programm legt alle Embeddings im Ordner `.chromadb/` ab. Um den Index neu aufzubauen (z. B. nach Änderung der PDFs), löschen Sie einfach den gesamten Ordner:
+
+```bash
+$ rm -rf .chromadb/
+```
+
+Beim nächsten Start wird die Datenbank automatisch frisch generiert.
+
+---
+
+## Hinweise
+
+* Das Tool nutzt OpenAI GPT (standardmäßig `gpt-4.1-mini`).
+* Für große PDF‑Sammlungen kann der erste Lauf einige Minuten dauern (Embedding‑Berechnung).
+* Sie können Schwellenwerte (`SIMILARITY_THRESHOLD`, `MAX_CANDIDATES`) in `.env` feinjustieren.
+
+Viel Erfolg beim Automatisieren des Compliance‑Checks!

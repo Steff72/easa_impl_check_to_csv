@@ -22,7 +22,7 @@ def validate_candidates(regulation, candidates, sections):
     for i, sec_id in enumerate(candidates, start=1):
         excerpt = sections.get(sec_id, "")[:200].replace('\n', ' ')
         prompt += f"{i}) {sec_id} – \"{excerpt}\"\n"
-    prompt += "\nBitte antworte mit einer JSON-Liste der Abschnittsnummern, die wirklich die Anforderungen umsetzen. Z.B.: [\"3.10.4\", \"7.1.12\"]"
+    prompt += "\nBitte antworte mit einer JSON-Liste der Dokumentabschnitte (inkl. Dokumentname und Abschnittsnummer), die wirklich die Anforderungen umsetzen. Z.B.: [\"Dokument1.pdf 3.10.4\", \"Dokument2.pdf 7.1.12\"]"
 
     # Chat-Completion über die neue API aufrufen
     response = openai.chat.completions.create(

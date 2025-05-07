@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
 
 import os
+from dotenv import load_dotenv
+
+# .env **vor** allen weiteren Imports laden und Werte erzwingen
+load_dotenv(override=True)
+
 import sys
 import click
-from dotenv import load_dotenv
+
 from parse_regulations import parse_regulations
 from parse_document import parse_document_sections
 from vector_search import init_chroma, search_candidates
@@ -18,19 +23,18 @@ from export_results import export_to_csv
 )
 @click.option(
     '--doc',
-    default='documents/EDW OM D Rev29.pdf',
-    help='Pfad zur OM-D PDF-Datei'
+    default='documents',
+    help='Pfad zu einem Ordner mit PDF-Dateien'
 )
 @click.option(
     '--out',
-    default='results/part-fcl_to_omd_map.csv',
+    default='results/part-fcl_to_om_map.csv',
     help='Pfad zur Ausgabe-CSV'
 )
 def main(regs, doc, out):
     """
-    CLI-Tool: Mappt EASA Part-FCL Regulations auf OM-D Handbook Sections
+    CLI-Tool: Mappt EASA Part-FCL Regulations auf OM Handbook Sections
     """
-    load_dotenv()
     threshold = float(os.getenv('SIMILARITY_THRESHOLD', 0.7))
     max_cand = int(os.getenv('MAX_CANDIDATES', 50))
 
@@ -45,12 +49,32 @@ def main(regs, doc, out):
         sys.exit(1)
 
     # 2. Sektionen aus PDF extrahieren
-    click.echo(f"📑 Lade Dokument und extrahiere Sections aus: {doc}")
-    sections = parse_document_sections(doc)
-    click.echo(f"  → Gefundene Sections: {len(sections)}")
+    sections = {}
+    if os.path.isdir(doc):
+        click.echo(f"📑 Lade Dokumente aus Ordner: {doc}")
+        pdf_files = [os.path.join(doc, f) for f in os.listdir(doc) if f.lower().endswith('.pdf')]
+        pdf_files.sort()
+        for pdf_file in pdf_files:
+            file_name = os.path.basename(pdf_file)
+            click.echo(f"  ↪ Extrahiere Sections aus: {file_name}")
+            doc_sections = parse_document_sections(pdf_file)
+            click.echo(f"    → Gefundene Sections in {file_name}: {len(doc_sections)}")
+            for sec_id, content in doc_sections.items():
+                combined_id = f"{file_name} {sec_id}"
+                sections[combined_id] = content
+    else:
+        click.echo(f"📑 Lade Dokument und extrahiere Sections aus: {doc}")
+        file_name = os.path.basename(doc)
+        doc_sections = parse_document_sections(doc)
+        click.echo(f"  → Gefundene Sections: {len(doc_sections)}")
+        for sec_id, content in doc_sections.items():
+            combined_id = f"{file_name} {sec_id}"
+            sections[combined_id] = content
+
     if not sections:
-        click.echo(f"❌ Fehler: Keine Abschnitte aus Dokument '{doc}' extrahiert. Bitte prüfen.", err=True)
+        click.echo(f"❌ Fehler: Keine Abschnitte aus '{doc}' extrahiert. Bitte prüfen.", err=True)
         sys.exit(1)
+    click.echo(f"  → Gesamt gefundene Sections: {len(sections)}")
 
     # 3. Chroma DB initialisieren und indexieren
     click.echo("🗄 Initialisiere Vector Database (Chroma)…")
@@ -71,7 +95,7 @@ def main(regs, doc, out):
         for sec_id in valid_ids:
             results.append({
                 'regulation': f"{reg['id']} {reg['title']}",
-                'section': f"OM-D (29) {sec_id}"
+                'section': sec_id
             })
 
     # 6. CSV-Ausgabe
