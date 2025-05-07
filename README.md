@@ -47,17 +47,8 @@ MAX_CANDIDATES=50
 
 ```bash
 # Standardaufruf verarbeitet alle PDFs im Ordner `documents/`
-$ python src/main.py \
-    --regs "regulations/Easy Access Rules for Aircrew … .xml" \
-    --doc documents \
-    --out results/part‑fcl_to_omd_map.csv
+$ python src/main.py 
 ```
-
-Parameterübersicht:
-
-* `--regs`  – Pfad zur XML‑Regulationsdatei (Default siehe oben)
-* `--doc`   – Einzelpfad **oder** Ordner; default `documents/`
-* `--out`   – Zieldatei für die CSV‑Ergebnisse
 
 ---
 
@@ -68,7 +59,7 @@ Parameterübersicht:
 3. **Vektor‑Index** – Alle Sections werden in eine Chroma‑Collection eingebettet.
 4. **Kandidatensuche** – Für jede Regulation werden per Ähnlichkeitsscore Top‑K‑Kandidaten geholt.
 5. **LLM‑Validierung** – GPT‑Modell prüft, welche Kandidaten den Regeltext wirklich erfüllen.
-6. **Export** – Das Mapping wird als CSV gespeichert (`regulation`, `section`). Die Section enthält **Dateiname + Abschnitts‑ID** (z. B. `EDW OM D Rev29.pdf 3.4.2`).
+6. **Export** – Das Mapping wird als CSV gespeichert (`regulation`, `section`). Die Section enthält **Dateiname + Abschnitts‑ID** (z. B. `EDW OM D Rev29.pdf 3.4.2`). Das CSV wird im Ordner `results` gespeichert.
 
 ---
 
